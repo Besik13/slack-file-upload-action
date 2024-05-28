@@ -12,7 +12,7 @@ function finishWithError(message) {
 }
 
 function finish(result) {
-    core.setOutput("result", result);
+    core.info(result);
 }
 
 async function run() {
@@ -31,6 +31,8 @@ async function run() {
             filename = path.basename(pathToFile)
         }
 
+        core.info(`Start uploading ${pathToFile}`)
+
         var form = new FormData();
         form.append('file', fs.createReadStream(pathToFile));
 
@@ -48,18 +50,21 @@ async function run() {
         const uploadUrlResponseBody = JSON.parse(uploadUrlResponse.body)
         const uploadUrl = uploadUrlResponseBody.upload_url
         const file_id = uploadUrlResponseBody.file_id
+
         if (!uploadUrlResponseBody.ok) {
             finishWithError(uploadUrlResponseBody.error);
             return
         }
-
+        core.info(`Recieved upload url: ${uploadUrl}`)
+        core.info(`Start uploading: ${fileSize}`)
         const uploadFileResponse = await got.post(uploadUrl, {
             headers: {
                 'Authorization': 'Bearer ' + token,
             },
             body: form
         })
-
+        core.info(`File uploaded`)
+        core.info(`Complete uploading`)
         const completeResponse = await got.post('https://slack.com/api/files.completeUploadExternal', {
             headers: {
                 'Authorization': 'Bearer ' + token
@@ -74,6 +79,7 @@ async function run() {
             finishWithError(completeResponse.error);
             return
         }
+        core.info(`Completed`)
         finish(completeResponse.body)
     } catch (error) {
         finishWithError(error);

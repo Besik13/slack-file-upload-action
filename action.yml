@@ -12,19 +12,10 @@ inputs:
     required: true
   channel:
     description: 'Slack channels'
-    required: false
+    required: true
   filename: 
     description: 'Filename of file'
     required: false
-  filetype:
-    description: 'A file type identifier.'
-    required: false
-  initial_comment:
-    description: 'The message text introducing the file in specified channels.'
-    required: false
-  title:
-    description: 'Title of file'
-    required: false 
 outputs:
     result:
         description: "response from slack"
