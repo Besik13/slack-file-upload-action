@@ -1,8 +1,9 @@
-const core = require('@actions/core');
-const github = require('@actions/github');
-var http = require('http');
-var FormData = require('form-data');
-var fs = require('fs');
+import core from '@actions/core'
+import FormData from 'form-data';
+import fs from 'fs'
+import got from 'got';
+import path from 'path';
+import { glob } from 'glob'
 
 
 function finishWithError(message) {
@@ -14,54 +15,66 @@ function finish(result) {
     core.setOutput("result", result);
 }
 
-
-
-function submit(form) {
-    return new Promise((resolve, reject) => {
-        
-        var rawData = "";
-        form.submit("https://slack.com/api/files.upload", (err, res) => {
-            if(err) {
-                reject(err);
-            } else {
-                res.on("data", (chunk) => { rawData += chunk;});
-                res.on("end", () => {
-                    var data = JSON.parse(rawData);
-                    if(data.ok) {
-                        finish(rawData);
-                        resolve(data);
-                    } else {
-                        finishWithError(data.error);
-                        reject(data.error);
-                    }
-                });
-            }
-        });
-
-
-    });
-}
-
 async function run() {
     try {
         const token = core.getInput('token');
-        const path = core.getInput('path');
+        const pathToFile = (await glob(core.getInput('path'), {}))[0];
         const channel = core.getInput('channel');
-        const filename = core.getInput('filename');
-        const filetype = core.getInput('filetype');
-        const initial_comment = core.getInput('initial_comment');
-        const thread_ts = core.getInput('thread_ts');
-        const title = core.getInput('title');
+        const tempFileName = core.getInput('filename')
+
+        const fileSize = fs.statSync(pathToFile).size
+
+        var filename;
+        if (tempFileName) {
+            filename = tempFileName
+        } else {
+            filename = path.basename(pathToFile)
+        }
+
         var form = new FormData();
-        form.append('token', token);
-        form.append('file', fs.createReadStream(path));
-        if(filename) form.append('filename', filename);
-        if(channel) form.append('channels', channel);
-        if(filetype) form.append('filetype', filetype);
-        if(initial_comment) form.append('initial_comment', initial_comment);
-        if(thread_ts) form.append('thread_ts', thread_ts);
-        if(title) form.append('title', title);
-        await submit(form);
+        form.append('file', fs.createReadStream(pathToFile));
+
+        const uploadUrlResponse = await got('https://slack.com/api/files.getUploadURLExternal', {
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json; charset=UTF-8'
+            },
+            searchParams: {
+                filename: filename,
+                length: fileSize
+            }
+        });
+
+        const uploadUrlResponseBody = JSON.parse(uploadUrlResponse.body)
+        const uploadUrl = uploadUrlResponseBody.upload_url
+        const file_id = uploadUrlResponseBody.file_id
+        if (!uploadUrlResponseBody.ok) {
+            finishWithError(uploadUrlResponseBody.error);
+            return
+        }
+
+        const uploadFileResponse = await got.post(uploadUrl, {
+            headers: {
+                'Authorization': 'Bearer ' + token,
+            },
+            body: form
+        })
+
+        const completeResponse = await got.post('https://slack.com/api/files.completeUploadExternal', {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            },
+            json: {
+                files: [{ 'id': file_id }],
+                channel_id: channel
+            },
+        })
+        const completeResponseBody = JSON.parse(completeResponse.body)
+        if (!completeResponse.ok) {
+            finishWithError(completeResponse.error);
+            return
+        }
+        finish(completeResponse.body)
     } catch (error) {
         finishWithError(error);
     }

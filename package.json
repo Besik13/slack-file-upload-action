@@ -1,6 +1,7 @@
 {
   "name": "slack-file-upload-action",
   "version": "1.0.0",
+  "type": "module",
   "description": "Github action for uploading files",
   "main": "index.js",
   "scripts": {
@@ -20,7 +21,9 @@
   "dependencies": {
     "@actions/core": "^1.2.6",
     "@actions/github": "^4.0.0",
-    "form-data": "^3.0.0"
+    "form-data": "^3.0.0",
+    "glob": "^10.4.1",
+    "got": "^14.3.0"
   },
   "devDependencies": {
     "isomorphic-fetch": "^3.0.0"
