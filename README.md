@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v1
       - run: echo "Test file " > test.txt
       - name: Upload to slack step
-        uses: adrey/slack-file-upload-action@master
+        uses: Besik13/slack-file-upload-action@master
         with:
           token: ${{ secrets.SLACK_TOKEN }}
           path: test.txt
